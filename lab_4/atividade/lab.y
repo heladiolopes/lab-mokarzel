@@ -34,6 +34,7 @@
 #define 	LOGICO		2
 #define 	REAL		3
 #define 	CARACTERE	4
+#define 	VAZIO		5
 
 /*   Definicao de outras constantes   */
 
@@ -51,8 +52,8 @@ char *nometipid[3] = {" ", "IDPROG", "IDVAR"};
 
 /*  Strings para nomes dos tipos de variaveis  */
 
-char *nometipvar[5] = {"NAOVAR",
-	"INTEIRO", "LOGICO", "REAL", "CARACTERE"
+char *nometipvar[6] = {"NAOVAR",
+	"INTEIRO", "LOGICO", "REAL", "CARACTERE", "VAZIO"
 };
 
 /*    Declaracoes para a tabela de simbolos     */
@@ -99,6 +100,8 @@ void Incompatibilidade(char *);
 	float valreal;
 	char carac;
 }
+
+/* Declaracao dos atributos dos tokens e dos nao-terminais */
 
 %token			CALL
 %token			CHAR
@@ -149,6 +152,8 @@ void Incompatibilidade(char *);
 %token			COLON
 
 %token	<carac>		INVAL
+
+
 %%
 
 /* Producoes da gramatica:
@@ -173,34 +178,36 @@ DeclList 	: 	Declaration
 Declaration :	{tabular();} Type ElemList SCOLON {printf(";\n");}
 			;
 
-Type 		: 	INT {printf("int ");}
-			| 	FLOAT {printf("float ");}
-			| 	CHAR {printf("char ");}
-			| 	LOGIC {printf("logic ");}
-			| 	VOID {printf("void ");}
+Type 		: 	INT {printf("int "); tipocorrente = INTEIRO;}
+			| 	FLOAT {printf("float "); tipocorrente = REAL;}
+			| 	CHAR {printf("char "); tipocorrente = CARACTERE;}
+			| 	LOGIC {printf("logic "); tipocorrente = LOGICO;}
+			| 	VOID {printf("void "); tipocorrente = VAZIO;}
 			;
 
 ElemList	: 	Elem
 			| 	ElemList COMMA{printf(", ");} Elem
-		;
+			;
 
-Elem 		: ID {printf("%s", $1);} Dims
-		;
+Elem 		: 	ID {printf("%s", $1);
+				if(ProcuraSimb($1) != NULL) DeclaracaoRepetida($1);
+				else InsereSimb($1, IDVAR, tipocorrente);} Dims
+			;
 
 Dims 		:
-		| OPBRAK {printf("[");} DimList CLBRAK {printf("]");}
-		;
+			| 	OPBRAK {printf("[");} DimList CLBRAK {printf("]");}
+			;
 
-DimList 	: INTCT {printf("%d", $1);}
-		| DimList COMMA INTCT {printf(", %d", $3);}
-		;
+DimList 	: 	INTCT {printf("%d", $1);}
+			| 	DimList COMMA INTCT {printf(", %d", $3);}
+			;
 
-Functions 	: FUNCTIONS COLON {tabular();printf("functions :\n\n");tab++;} FuncList {tab--;}
-		;
+Functions 	: 	FUNCTIONS COLON {tabular();printf("functions :\n\n");tab++;} FuncList {tab--;}
+			;
 
-FuncList 	: Function
-		| FuncList Function
-		;
+FuncList 	: 	Function
+			| 	FuncList Function
+			;
 
 Function 	: {tabular();} Header
 		OPBRACE {tabular();printf("\{\n");}
@@ -303,7 +310,8 @@ ReturnStat 	: RETURN SCOLON {tabular();printf("return;\n");}
 		| RETURN {tabular();printf("return ");} Expression SCOLON {printf(";\n");}
 		;
 
-AssignStat 	: {tabular();} Variable ASSIGN {printf(" <- ");} Expression SCOLON {printf(";\n");}
+AssignStat 	: {tabular();} Variable
+ 				ASSIGN {printf(" <- ");} Expression SCOLON {printf(";\n");}
 		;
 
 ExprList 	: Expression
@@ -348,19 +356,22 @@ Term 		: Factor
 		} Factor
 		;
 
-Factor 		: Variable
-		| INTCT {printf("%d", $1);}
-		| FLOATCT {printf("%f", $1);}
-		| CHARCT {printf("%s", $1);}
-		| TRUE {printf("true");}
-		| FALSE {printf("false");}
-		| NEG {printf("~");} Factor
-		| OPPAR {printf("(");} Expression CLPAR {printf(")");}
-		| FuncCall
-		;
+Factor 		: 	Variable
+			| 	INTCT {printf("%d", $1);}
+			| 	FLOATCT {printf("%f", $1);}
+			| 	CHARCT {printf("%s", $1);}
+			| 	TRUE {printf("true");}
+			| 	FALSE {printf("false");}
+			| 	NEG {printf("~");} Factor
+			| 	OPPAR {printf("(");} Expression CLPAR {printf(")");}
+			| 	FuncCall
+			;
 
-Variable 	: ID {printf("%s", $1);} Subscripts
-		;
+Variable 	: 	ID {printf("%s", $1);
+				simb = ProcuraSimb($1);
+				if (simb == NULL) NaoDeclarado($1);
+				else if (simb->tid != IDVAR) TipoInadequado($1);} Subscripts
+			;
 
 Subscripts 	:
 		| OPBRAK {printf("[");} SubscrList CLBRAK {printf("]");}
