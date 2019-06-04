@@ -26,6 +26,7 @@
 
 #define 	IDPROG		1
 #define 	IDVAR		2
+#define		IDFUNC		3
 
 /*  Definicao dos tipos de variaveis   */
 
@@ -48,7 +49,7 @@ int tab = 0;
 
 /*  Strings para nomes dos tipos de identificadores  */
 
-char *nometipid[3] = {" ", "IDPROG", "IDVAR"};
+char *nometipid[4] = {" ", "IDPROG", "IDVAR", "IDFUNC"};
 
 /*  Strings para nomes dos tipos de variaveis  */
 
@@ -69,7 +70,7 @@ struct celsimb {
 
 /*  Variaveis globais para a tabela de simbolos e analise semantica */
 
-int tipocorrente;
+int tipocorrente, emfuncao;
 simbolo tabsimb[NCLASSHASH];
 simbolo simb;
 
@@ -209,151 +210,154 @@ FuncList 	: 	Function
 			| 	FuncList Function
 			;
 
-Function 	: {tabular();} Header
-		OPBRACE {tabular();printf("\{\n");}
-		LocDecls Stats
-		CLBRACE {tabular();printf("}\n\n");}
-		;
+Function 	: 	{tabular();} Header
+				OPBRACE {tabular();printf("\{\n");}
+				LocDecls Stats
+				CLBRACE {tabular();printf("}\n\n");}
+			;
 
-Header 		: MAIN {printf("main \n");}
-		| Type ID OPPAR {printf("%s (", $2);} Params CLPAR {printf(")\n");}
-		;
+Header 		: 	MAIN {printf("main \n");}
+			| 	Type ID OPPAR {printf("%s (", $2);
+				if(ProcuraSimb($2) != NULL) DeclaracaoRepetida($2);
+				else InsereSimb($2, IDFUNC, NAOVAR);}
+				Params CLPAR {printf(")\n");}
+			;
 
 Params 		:
-		| ParamList;
+			| 	ParamList;
 
-ParamList 	: Parameter
-		| ParamList COMMA {printf(", ");} Parameter
-		;
+ParamList 	: 	Parameter
+			| 	ParamList COMMA {printf(", ");} Parameter
+			;
 
-Parameter 	: Type ID {printf("%s", $2);}
-		;
+Parameter 	: 	Type ID {printf("%s", $2);}
+			;
 
 LocDecls 	:
-		| LOCAL COLON {tabular();printf("local :\n");tab++;} DeclList {tab--;}
-		;
+			| 	LOCAL COLON {tabular();printf("local :\n");tab++;} DeclList {tab--;}
+			;
 
-Stats 		: STATEMENTS COLON {tabular();printf("statements :\n");tab++;} StatList {tab--;}
-		;
+Stats 		: 	STATEMENTS COLON {tabular();printf("statements :\n");tab++;} StatList {tab--;}
+			;
 
 StatList 	:
-		| StatList Statement
-		;
+			| 	StatList Statement
+			;
 
-Statement 	: CompStat
-		| IfStat
-		| WhileStat
-		| DoStat
-		| ForStat
-		| ReadStat
-		| WriteStat
-		| AssignStat
-		| CallStat
-		| ReturnStat
-		| SCOLON {tabular();printf(";\n");}
-		;
+Statement 	: 	CompStat
+			| 	IfStat
+			| 	WhileStat
+			| 	DoStat
+			| 	ForStat
+			| 	ReadStat
+			| 	WriteStat
+			| 	AssignStat
+			| 	CallStat
+			| 	ReturnStat
+			| 	SCOLON {tabular();printf(";\n");}
+			;
 
-CompStat 	: OPBRACE {tab--;tabular();printf("\{\n");tab++;} StatList CLBRACE {tab--;tabular();printf("\}\n");tab++;}
-		;
+CompStat 	: 	OPBRACE {tab--;tabular();printf("\{\n");tab++;} StatList CLBRACE {tab--;tabular();printf("\}\n");tab++;}
+			;
 
-IfStat 		: IF OPPAR {tabular();printf("if (");tab++;} Expression CLPAR {printf(")\n");} Statement {tab--;} ElseStat
-		;
+IfStat 		: 	IF OPPAR {tabular();printf("if (");tab++;} Expression CLPAR {printf(")\n");} Statement {tab--;} ElseStat
+			;
 
 ElseStat 	:
-		| ELSE {tabular();printf("else\n");tab++;} Statement {tab--;}
-		;
+			| 	ELSE {tabular();printf("else\n");tab++;} Statement {tab--;}
+			;
 
-WhileStat 	: WHILE OPPAR {tabular();printf("while (");tab++;} Expression CLPAR {printf(")\n");} Statement {tab--;}
-		;
+WhileStat 	: 	WHILE OPPAR {tabular();printf("while (");tab++;} Expression CLPAR {printf(")\n");} Statement {tab--;}
+			;
 
-DoStat 		: DO {tabular();printf("do ");tab++;} Statement
-		WHILE OPPAR {tab--;tabular();printf("while (");} Expression CLPAR SCOLON  {printf(");");}
-		;
+DoStat 		: 	DO {tabular();printf("do ");tab++;} Statement
+				WHILE OPPAR {tab--;tabular();printf("while (");} Expression CLPAR SCOLON  {printf(");");}
+			;
 
-ForStat 	: FOR OPPAR {tabular();printf("for (");tab++;} Variable
-		ASSIGN {printf(" <- ");} Expression
-		SCOLON {printf("; ");} Expression
-		SCOLON {printf("; ");} Variable
-		ASSIGN {printf(" <- ");} Expression
-		CLPAR {printf(")\n");} Statement {tab--;}
-		;
+ForStat 	: 	FOR OPPAR {tabular();printf("for (");tab++;} Variable
+				ASSIGN {printf(" <- ");} Expression
+				SCOLON {printf("; ");} Expression
+				SCOLON {printf("; ");} Variable
+				ASSIGN {printf(" <- ");} Expression
+				CLPAR {printf(")\n");} Statement {tab--;}
+			;
 
-ReadStat 	: READ OPPAR {tabular();printf("read (");} ReadList CLPAR SCOLON {printf(");\n");}
-		;
+ReadStat 	: 	READ OPPAR {tabular();printf("read (");} ReadList CLPAR SCOLON {printf(");\n");}
+			;
 
-ReadList 	: Variable
-		| ReadList COMMA {printf(", ");} Variable
-		;
+ReadList 	: 	Variable
+			| 	ReadList COMMA {printf(", ");} Variable
+			;
 
-WriteStat 	: WRITE OPPAR {tabular();printf("write (");} WriteList CLPAR SCOLON {printf(");\n");}
-		;
+WriteStat 	: 	WRITE OPPAR {tabular();printf("write (");} WriteList CLPAR SCOLON {printf(");\n");}
+			;
 
-WriteList 	: WriteElem
-		| WriteList COMMA {printf(", ");} WriteElem
-		;
+WriteList 	: 	WriteElem
+			| 	WriteList COMMA {printf(", ");} WriteElem
+			;
 
-WriteElem 	: STRING {printf("%s", $1);}
-		| Expression
-		;
+WriteElem 	: 	STRING {printf("%s", $1);}
+			|	Expression
+			;
 
-CallStat 	: CALL {tabular();printf("call ");} FuncCall SCOLON {printf(";\n");}
-		;
+CallStat 	: 	CALL {tabular();printf("call ");} FuncCall SCOLON {printf(";\n");}
+			;
 
-FuncCall 	: ID OPPAR {printf("%s (", $1);} Arguments CLPAR {printf(")");}
-		;
+FuncCall 	: 	ID OPPAR {printf("%s (", $1);} Arguments CLPAR {printf(")");}
+			;
 
 Arguments 	:
-		| ExprList
-		;
+			| 	ExprList
+			;
 
-ReturnStat 	: RETURN SCOLON {tabular();printf("return;\n");}
-		| RETURN {tabular();printf("return ");} Expression SCOLON {printf(";\n");}
-		;
+ReturnStat 	: 	RETURN SCOLON {tabular();printf("return;\n");}
+			| 	RETURN {tabular();printf("return ");} Expression SCOLON {printf(";\n");}
+			;
 
-AssignStat 	: {tabular();} Variable
+AssignStat 	: 	{tabular();} Variable
  				ASSIGN {printf(" <- ");} Expression SCOLON {printf(";\n");}
-		;
+				;
 
-ExprList 	: Expression
-		| ExprList COMMA {printf(" , ");} Expression
-		;
+ExprList 	: 	Expression
+			| 	ExprList COMMA {printf(" , ");} Expression
+			;
 
-Expression 	: AuxExpr1
-		| Expression OR {printf(" || ");} AuxExpr1
-		;
+Expression 	:	AuxExpr1
+			| 	Expression OR {printf(" || ");} AuxExpr1
+			;
 
-AuxExpr1 	: AuxExpr2
-		| AuxExpr1 AND{printf(" && ");} AuxExpr2
-		;
+AuxExpr1 	:	AuxExpr2
+			| 	AuxExpr1 AND{printf(" && ");} AuxExpr2
+			;
 
-AuxExpr2 	: AuxExpr3
-		| NOT {printf("!");} AuxExpr3
-		;
+AuxExpr2 	: 	AuxExpr3
+			| 	NOT {printf("!");} AuxExpr3
+			;
 
-AuxExpr3 	: AuxExpr4
-		| AuxExpr4 RELOP {
-		if ($2 == LT) printf(" < ");
-		else if ($2 == LE) printf(" <= ");
-		else if ($2 == GT) printf(" > ");
-		else if ($2 == GE) printf(" >= ");
-		else if ($2 == EQ) printf(" = ");
-		else printf(" != ");
-		} AuxExpr4
-		;
+AuxExpr3 	: 	AuxExpr4
+			| 	AuxExpr4 RELOP {
+				if ($2 == LT) printf(" < ");
+				else if ($2 == LE) printf(" <= ");
+				else if ($2 == GT) printf(" > ");
+				else if ($2 == GE) printf(" >= ");
+				else if ($2 == EQ) printf(" = ");
+				else printf(" != ");
+				} AuxExpr4
+				;
 
-AuxExpr4 	: Term
-		| AuxExpr4 ADOP {
-		if ($2 == PLUS) printf (" + ");
-		else printf (" - ");
-		} Term
-		;
+AuxExpr4 	: 	Term
+			| 	AuxExpr4 ADOP {
+				if ($2 == PLUS) printf (" + ");
+				else printf (" - ");
+				} Term
+			;
 
-Term 		: Factor
-		| Term MULTOP {
-		if ($2 == TIMES) printf (" * ");
-		else if ($2 == DIVIDED) printf (" / ");
-		else printf (" % ");
-		} Factor
+Term 		: 	Factor
+			|	Term MULTOP {
+				if ($2 == TIMES) printf (" * ");
+				else if ($2 == DIVIDED) printf (" / ");
+				else printf (" % ");
+				} Factor
 		;
 
 Factor 		: 	Variable
@@ -374,12 +378,12 @@ Variable 	: 	ID {printf("%s", $1);
 			;
 
 Subscripts 	:
-		| OPBRAK {printf("[");} SubscrList CLBRAK {printf("]");}
-		;
+			| 	OPBRAK {printf("[");} SubscrList CLBRAK {printf("]");}
+			;
 
-SubscrList 	: AuxExpr4
-		| SubscrList COMMA {printf(", ");} AuxExpr4
-		;
+SubscrList 	: 	AuxExpr4
+			| 	SubscrList COMMA {printf(", ");} AuxExpr4
+			;
 
 %%
 
@@ -455,7 +459,7 @@ void ImprimeTabSimb () {
 		if (tabsimb[i]) {
 			printf ("Classe %d:\n", i);
 			for (s = tabsimb[i]; s!=NULL; s = s->prox){
-				printf ("  (%5s, %s", s->cadeia,  nometipid[s->tid]);
+				printf ("  (%10s, %s", s->cadeia,  nometipid[s->tid]);
 				if (s->tid == IDVAR)
 					printf (", %9s, %d, %d",
 						nometipvar[s->tvar], s->inic, s->ref);
@@ -485,11 +489,12 @@ void TipoInadequado (char *s) {
 
 void VerificaInicRef() {
 	int i; simbolo s;
+	printf ("\n\n   VERIFICA INICIALIZA E REFERENCIA:\n\n");
 	for (i = 0; i < NCLASSHASH; i++)
 		if (tabsimb[i]) {
 			for (s = tabsimb[i]; s!=NULL; s = s->prox){
 				if((!s->inic || !s->ref) && s->tid == IDVAR) {
-					printf("Variável %5s ", s->cadeia);
+					printf("Variável %10s ", s->cadeia);
 					if (!s->inic && !s->ref) printf("não inicializada nem referênciada.\n");
 					else if (!s->inic) printf("não inicializada.\n");
 					else if (!s->ref) printf("não referênciada.\n");
