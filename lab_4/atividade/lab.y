@@ -88,8 +88,9 @@ simbolo ProcuraSimb (char *);
 void DeclaracaoRepetida (char *);
 void TipoInadequado (char *);
 void NaoDeclarado (char *);
-void VerificaInicRef();
+void VerificaInicRef ();
 void Incompatibilidade(char *);
+void DimensaoInvalida (int);
 
 %}
 
@@ -199,8 +200,8 @@ Dims 		:
 			| 	OPBRAK {printf("[");} DimList CLBRAK {printf("]");}
 			;
 
-DimList 	: 	INTCT {printf("%d", $1);}
-			| 	DimList COMMA INTCT {printf(", %d", $3);}
+DimList 	: 	INTCT {printf("%d", $1); if($1 <= 0) DimensaoInvalida($1);}
+			| 	DimList COMMA INTCT {printf(", %d", $3); if($3 <= 0) DimensaoInvalida($3);}
 			;
 
 Functions 	: 	FUNCTIONS COLON {tabular();printf("functions :\n\n");tab++;} FuncList {tab--;}
@@ -476,10 +477,15 @@ void DeclaracaoRepetida (char *s) {
 
 void NaoDeclarado (char *s) {
     printf ("\n\n***** Identificador Nao Declarado: %s *****\n\n", s);
+	exit(1);
 }
 
 void TipoInadequado (char *s) {
     printf ("\n\n***** Identificador de Tipo Inadequado: %s *****\n\n", s);
+}
+
+void DimensaoInvalida (int i) {
+	printf ("\n\n***** Dimensao %d invalida, deve ser maior que zero *****\n\n", i);
 }
 
 /*
