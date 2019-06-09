@@ -60,7 +60,7 @@ nocorr[posic] <- 1;
 /* Funcao para escrever a tabela de palavras */
 void ExibirTabela () {
 local:
-int i; logic fim;
+int i, j; logic fim;
 statements:
 write (" ", "Palavra ",
 " Num. de ocorr.");
@@ -97,7 +97,7 @@ posic <- Procura ();
 if (posic > 0)
 nocorr[posic] <- nocorr[posic] + 1;
 else
-call Inserir (~posic, i);
+    call Inserir (~posic, i);
 write ("\n\nNova palavra? (s/n): ");
 read (c);
 }

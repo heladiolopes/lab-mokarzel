@@ -1,3 +1,6 @@
+%{
+void comentario (void);
+%}
 delim		[ \t\n\r]
 ws		{delim}+
 digito		[0-9]
