@@ -97,7 +97,7 @@ posic <- Procura ();
 if (posic > 0)
 nocorr[posic] <- nocorr[posic] + 1;
 else
-    call Inserir (~posic, i);
+call Inserir (i);
 write ("\n\nNova palavra? (s/n): ");
 read (c);
 }

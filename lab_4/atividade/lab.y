@@ -74,10 +74,10 @@ struct celsimb {
 
 /*  Variaveis globais para a tabela de simbolos e analise semantica */
 
-int tipocorrente, emfuncao;
+int tipocorrente, ehfuncao;
 char *escopocorrente;
 simbolo tabsimb[NCLASSHASH];
-simbolo simb;
+simbolo simb, fcall;
 
 /*
 	Prototipos das funcoes para a tabela de simbolos
@@ -338,19 +338,20 @@ DoStat 		: 	DO {tabular();printf("do ");tab++;} Statement
 			;
 
 ForStat 	: 	FOR OPPAR {tabular();printf("for (");tab++;} Variable {
-					if ($4 != NULL)
+					if ($4 != NULL){
 						$4->inic = $4->ref = VERDADE;
-					if ($4->tvar != INTEIRO && $4->tvar != CARACTERE)
-						Incompatibilidade("Variavel de inicializacao deve ser inteiro ou caractere");
+						if ($4->tvar != INTEIRO && $4->tvar != CARACTERE)
+							Incompatibilidade("Variavel de inicializacao deve ser inteiro ou caractere");
+					}
 				}
 				ASSIGN {printf(" <- ");} Expression
 				SCOLON {printf("; ");} Expression
 				SCOLON {printf("; ");} Variable {
-					if (strcmp($4->cadeia, $14->cadeia))
+					if ($4 != NULL && strcmp($4->cadeia, $14->cadeia))
 						Incompatibilidade("Variavel de atualizacao deve ser a mesma de inicializacao");
 				}
 				ASSIGN {printf(" <- ");} Expression {
-					if (!((($8 == INTEIRO && $18 == INTEIRO) || ($8 == CARACTERE && $18 == CARACTERE)) && ($11 == LOGICO)))
+					if ($4 != NULL && $8 != NULL && !((($8 == INTEIRO && $18 == INTEIRO) || ($8 == CARACTERE && $18 == CARACTERE)) && ($11 == LOGICO)))
 						Incompatibilidade("Expressoes do for invalida");
 
 				}
@@ -388,6 +389,9 @@ FuncCall 	: 	ID OPPAR {printf("%s (", $1);
 					else if (simb->tid != IDFUNC)
 						Incompatibilidade("Call deve chamar funcao");
 					else $<tipoexpr>$ = simb->tvar;
+
+					fcall = ProcuraSimb($1, "Global");
+
 				} Arguments CLPAR {
 					printf(")");
 					$$ = $<tipoexpr>3;
@@ -448,15 +452,37 @@ AssignStat 	: 	{tabular();} Variable {if  ($2 != NULL) $2->inic = $2->ref = VERD
 			}
 				;
 
-ExprList 	: 	Expression {
-					if ($1 == VAZIO)
+ExprList 	: 	{ehfuncao = FALSO;}
+				Expression {
+					if ($2 == VAZIO)
 						Incompatibilidade("Tipo incompativel de parametro");
+					if (ehfuncao)
+						Incompatibilidade("Funcao nao pode ser parametro");
 					$$ = 1;
+
+					if (((fcall->pars[$$] == INTEIRO ||
+						fcall->pars[$$] == CARACTERE) &&
+						($2 == REAL || $2 == LOGICO)) ||
+						(fcall->pars[$$] == REAL && $2 == LOGICO) ||
+						(fcall->pars[$$] == LOGICO && $2 != LOGICO))
+						Incompatibilidade("Tipo nao aceito de parâmetro");
+
+
 				}
-			| 	ExprList COMMA {printf(" , ");} Expression {
+			| 	ExprList COMMA {printf(" , "); ehfuncao = FALSO;} Expression {
 					if ($4 == VAZIO)
 						Incompatibilidade("Tipo incompativel de parametro");
+					if (ehfuncao)
+						Incompatibilidade("Funcao nao pode ser parametro");
+
 					$$ = $1 + 1;
+
+					if (((fcall->pars[$$] == INTEIRO ||
+						fcall->pars[$$] == CARACTERE) &&
+						($4 == REAL || $4 == LOGICO)) ||
+						(fcall->pars[$$] == REAL && $4 == LOGICO) ||
+						(fcall->pars[$$] == LOGICO && $4 != LOGICO))
+						Incompatibilidade("Tipo nao aceito de parâmetro");
 				}
 			;
 
@@ -566,6 +592,7 @@ Factor 		: 	Variable {if  ($1 != NULL) {$1->ref  =  VERDADE; $$ = $1->tvar;}}
 					$$ = $1;
 					if ($1 == VAZIO)
 						Incompatibilidade("Funcao nao pode ser void");
+					ehfuncao = VERDADE;
 				}
 			;
 
