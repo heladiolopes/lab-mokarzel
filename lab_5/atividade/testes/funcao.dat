@@ -1,0 +1,42 @@
+program Funcoes {
+
+global:
+
+int x;
+
+functions:
+
+int f(int x, int y) {
+local:
+    logic a;
+statements:
+    a <- x + y;
+    return a;
+}
+
+void g(int x, float y) {
+local:
+    float a;
+statements:
+    a <- 3.3;
+    a <- f(a);
+
+    call g(3, 3);
+
+    return a;
+
+}
+
+
+main {
+
+local:
+
+    int y;
+
+statements:
+    x <- y;
+
+}
+
+}
