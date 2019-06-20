@@ -68,6 +68,8 @@
 #define		OPCONTAPONT		27
 #define		OPRETURN		28
 #define		OPCALL			29
+#define		OPEXIT			30
+
 
 /* Definicao de constantes para os tipos de operandos de quadruplas */
 
@@ -106,11 +108,12 @@ char *nometipvar[6] = {"NAOVAR",
 
 /* Strings para operadores de quadruplas */
 
-char *nomeoperquad[30] = {"",
+char *nomeoperquad[31] = {"",
 	"OR", "AND", "LT", "LE", "GT", "GE", "EQ", "NE", "MAIS",
 	"MENOS", "MULT", "DIV", "RESTO", "MENUN", "NOT", "ATRIB",
 	"OPENMOD", "NOP", "JUMP", "JF", "PARAM", "READ", "WRITE",
-	"IND", "INDEX", "ATRIBPONT", "CONTAPONT", "RETURN", "CALL"
+	"IND", "INDEX", "ATRIBPONT", "CONTAPONT", "RETURN", "CALL",
+	"EXIT"
 };
 
 /*
@@ -133,6 +136,7 @@ struct celsimb {
 	char inic, ref, array, parameter;
 	simbolo prox;
 	int npars, pars[MAXPARS+1];
+	int relacionado;
 };
 
 /*  Variaveis globais para a tabela de simbolos e analise semantica */
@@ -192,7 +196,7 @@ struct celmodhead {
 
 /* Variaveis globais para o codigo intermediario */
 
-quadrupla quadcorrente, quadaux, quadaux2;
+quadrupla quadcorrente, quadaux, quadaux2, quadread;
 modhead codintermed, modcorrente;
 int oper, numquadcorrente;
 operando opnd1, opnd2, result, opndaux;
@@ -326,6 +330,18 @@ Prog		:	{
 				} GlobDecls Functions CLBRACE {
 					tabular();
 					printf("}\n");
+
+					// Call na main
+					quadrupla p = codintermed->prox->listquad->prox;
+					while (p->prox != NULL)
+						p = p->prox;
+					quadcorrente = p;
+					opnd1.tipo = FUNCOPND;	opnd1.atr.simb = ProcuraSimb("Main", "Global");
+					opnd2.tipo = INTOPND; 	opnd2.atr.valint = 0;
+					numquadcorrente=1;
+					GeraQuadrupla (OPCALL, opnd1, opnd2, opndidle);
+					GeraQuadrupla (OPEXIT, opndidle, opndidle, opndidle);
+
 					VerificaInicRef();
 					ImprimeTabSimb();
 					ImprimeQuadruplas();
@@ -406,10 +422,10 @@ Header 		: 	MAIN {
 					free(escopocorrente);
 					escopocorrente = (char*) malloc ((strlen("Main")+1) * sizeof(char));
 					strcpy(escopocorrente, "Main");
-					if(ProcuraSimb("main", "Global") != NULL)
-						DeclaracaoRepetida("main");
+					if(ProcuraSimb("Main", "Global") != NULL)
+						DeclaracaoRepetida("Main");
 					else {
-							simb = InsereSimb("main", IDFUNC, NAOVAR, "Global");
+							simb = InsereSimb("Main", IDFUNC, NAOVAR, "Global");
 							InicCodIntermMod(simb);
 							opnd1.tipo = MODOPND;
 							opnd1.atr.modulo = modcorrente;
@@ -512,7 +528,14 @@ IfStat 		: 	IF OPPAR {tabular();printf("if (");tab++;} Expression {
 			;
 
 ElseStat 	:
-			| 	ELSE {tabular();printf("else\n");tab++;} Statement {tab--;}
+			| 	ELSE {
+					tabular();printf("else\n");tab++;
+					opndaux.tipo = ROTOPND;
+					$<quad>$ = GeraQuadrupla (OPJUMP, opndidle, opndidle, opndaux);
+				} Statement {
+					tab--;
+					$<quad>2->result.atr.rotulo = GeraQuadrupla (NOP, opndidle, opndidle, opndidle);
+				}
 			;
 
 WhileStat 	: 	WHILE OPPAR {
@@ -560,7 +583,7 @@ ForStat 	: 	FOR OPPAR {tabular();printf("for (");tab++;} Variable {
 					$<quad>$ = GeraQuadrupla(NOP, opndidle, opndidle, opndidle);
 				} Expression {
 					opndaux.tipo = ROTOPND;
-					$<quad>$ = GeraQuadrupla (OPJF, $8.opnd, opndidle, opndaux);
+					$<quad>$ = GeraQuadrupla (OPJF, $11.opnd, opndidle, opndaux);
 				}
 				SCOLON {
 					printf("; ");
@@ -595,24 +618,78 @@ ForStat 	: 	FOR OPPAR {tabular();printf("for (");tab++;} Variable {
 				}
 			;
 
-ReadStat 	: 	READ OPPAR {tabular();printf("read (");} ReadList {
-					opnd1.tipo = INTOPND;
-					opnd1.atr.valint = $4;
-					GeraQuadrupla (OPREAD, opnd1, opndidle, opndidle);
-				} CLPAR SCOLON {printf(");\n");}
+ReadStat 	: 	READ OPPAR {tabular();printf("read (");ehatrib=VERDADE;} ReadList {
+					if ($4 > 0){
+						opnd1.tipo = INTOPND;
+						opnd1.atr.valint = $4;
+						GeraQuadrupla (OPREAD, opnd1, opndidle, opndidle);
+					}
+				} CLPAR SCOLON {printf(");\n");ehatrib=FALSO;}
 			;
 
 ReadList 	: 	Variable {
-					if ($1.simb != NULL)
+					if ($1.simb->relacionado){
+
+						simb = $1.opnd.atr.simb;
+						$1.opnd.atr.simb = NovaTemp($1.opnd.atr.simb->tvar, escopocorrente);
+
+						if ($1.simb != NULL)
+							$1.simb->inic = $1.simb->ref = VERDADE;
+						$$ = 0;
+						GeraQuadrupla (PARAM, $1.opnd, opndidle, opndidle);
+
+						opnd1.tipo = INTOPND;
+						opnd1.atr.valint = 1;
+						GeraQuadrupla(OPREAD, opnd1, opndidle, opndidle);
+						opndaux.tipo = VAROPND;
+						opndaux.atr.simb = simb;
+						quadread = GeraQuadrupla(OPATRIBPONT, $1.opnd, opndidle, opndaux);
+					}
+					else {
+						if ($1.simb != NULL)
 						$1.simb->inic = $1.simb->ref = VERDADE;
-					$$ = 1;
-					GeraQuadrupla (PARAM, $1.opnd, opndidle, opndidle);
+						$$ = 1;
+						quadread = GeraQuadrupla (PARAM, $1.opnd, opndidle, opndidle);
+					}
+
 				}
 			| 	ReadList COMMA {printf(", ");} Variable {
-					if ($4.simb != NULL)
+					quadrupla aux, q;
+					if ($4.simb->relacionado && $1 > 0) {
+						opnd1.tipo = INTOPND;
+						opnd1.atr.valint = $$;
+						aux = GeraQuadrupla (OPREAD, opnd1, opndidle, opndidle);
+						$1 = 0;
+
+						if (quadread != NULL){
+							aux->prox = quadread->prox;
+							quadread->prox = aux;
+
+							q = aux->prox;
+							while (q->prox != aux)
+								q = q->prox;
+							q->prox = NULL;
+							RenumQuadruplas(quadread, q->prox);
+							quadcorrente = q;
+						}
+						simb = $4.opnd.atr.simb;
+						$4.opnd.atr.simb = NovaTemp($4.opnd.atr.simb->tvar, escopocorrente);
+						if ($4.simb != NULL)
+							$4.simb->inic = $4.simb->ref = VERDADE;
+						$$ = 0;
+						quadread = GeraQuadrupla (PARAM, $4.opnd, opndidle, opndidle);
+						opnd1.tipo = INTOPND;
+						opnd1.atr.valint = 1;
+						GeraQuadrupla(OPREAD, opnd1, opndidle, opndidle);
+						opndaux.tipo = VAROPND;
+						opndaux.atr.simb = simb;
+						quadread = GeraQuadrupla(OPATRIBPONT, $4.opnd, opndidle, opndaux);
+					} else {
+						if ($4.simb != NULL)
 						$4.simb->inic = $4.simb->ref = VERDADE;
-					$$ = $1 + 1;
-					GeraQuadrupla (PARAM, $4.opnd, opndidle, opndidle);
+						$$ = $1 + 1;
+						quadread = GeraQuadrupla (PARAM, $4.opnd, opndidle, opndidle);
+					}
 				}
 			;
 
@@ -736,7 +813,10 @@ AssignStat 	: 	{tabular();ehatrib=VERDADE;} Variable {
 	        				($2.simb->tvar == REAL && $6.tipo == LOGICO) ||
 							($2.simb->tvar == LOGICO && $6.tipo != LOGICO))
 	    					Incompatibilidade ("Lado direito de comando de atribuicao improprio");
-					GeraQuadrupla (OPATRIB, $6.opnd, opndidle, $2.opnd);
+					if (!$2.simb->relacionado)
+						GeraQuadrupla (OPATRIB, $6.opnd, opndidle, $2.opnd);
+					else
+						GeraQuadrupla (OPATRIBPONT, $6.opnd, opndidle, $2.opnd);
 
 				}
 			;
@@ -1002,6 +1082,7 @@ Variable 	: 	ID {
 								GeraQuadrupla(OPCONTAPONT, opnd, opndidle, $$.opnd);
 								$$.simb = $$.opnd.atr.simb;
 							}
+							$$.simb->relacionado = VERDADE;
 
 						}
       				}
@@ -1092,6 +1173,7 @@ simbolo InsereSimb (char *cadeia, int tid, int tvar, char *escopo) {
 	strcpy (s->escopo, escopo);
 	s->tid = tid;		s->tvar = tvar;
 	s->inic = FALSO;	s->ref = FALSO;
+	s->relacionado = FALSO;
 	s->prox = aux;	return s;
 }
 
@@ -1165,26 +1247,32 @@ void VerificaInicRef() {
 
 void DeclaracaoRepetida (char *s) {
 	printf ("\n\n***** Declaracao Repetida: %s *****\n\n", s);
+	exit(1);
 }
 
 void NaoDeclarado (char *s) {
     printf ("\n\n***** Identificador Nao Declarado: %s *****\n\n", s);
+	exit(2);
 }
 
 void TipoInadequado (char *s) {
     printf ("\n\n***** Identificador de Tipo Inadequado: %s *****\n\n", s);
+	exit(3);
 }
 
 void Incompatibilidade (char *s) {
 	printf ("\n\n***** Incompatibilidade: %s *****\n\n", s);
+	exit(4);
 }
 
 void Esperado (char *s) {
 	printf ("\n\n***** Esperado: %s *****\n\n", s);
+	exit(5);
 }
 
 void NaoEsperado (char *s) {
 	printf ("\n\n***** Nao Esperado: %s *****\n\n", s);
+	exit(6);
 }
 
 /* Funcoes para o codigo intermediario */

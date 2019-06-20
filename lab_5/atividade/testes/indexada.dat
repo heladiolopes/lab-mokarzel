@@ -1,0 +1,26 @@
+
+program Teste {
+
+global:
+int comb;
+
+functions:
+
+main {
+local:
+	int i, j, k, A[10,10];
+statements:
+	/*i <- 7; j <- 5;
+	k <- A[i-3,j+2] + 5;
+	A[10-i,9-j] <- i + j * k;*/
+
+	read (i, j, A[2,3], k);
+	read (A[1,2]);
+	read (i, j);
+	read (A[1,2], i);
+	read (i, A[1,2]);
+	read (A[1,2], i, A[3, 4]);
+	read (A[1,2], A[3, 4]);
+
+}
+}
