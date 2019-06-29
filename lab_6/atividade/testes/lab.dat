@@ -1,0 +1,24 @@
+program DOWHILE {
+
+global:
+
+int x;
+
+functions:
+
+main {
+
+local:
+
+    int y;
+
+statements:
+    x <- 1;
+    do {
+        x <- x + 1;
+        write("\n", x);
+    } while (x < 5);
+
+}
+
+}
