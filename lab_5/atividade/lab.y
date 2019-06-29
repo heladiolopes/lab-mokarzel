@@ -69,6 +69,8 @@
 #define		OPRETURN		28
 #define		OPCALL			29
 #define		OPEXIT			30
+#define		OPENFUNC		31
+#define		OPJT			32
 
 
 /* Definicao de constantes para os tipos de operandos de quadruplas */
@@ -113,7 +115,7 @@ char *nomeoperquad[31] = {"",
 	"MENOS", "MULT", "DIV", "RESTO", "MENUN", "NOT", "ATRIB",
 	"OPENMOD", "NOP", "JUMP", "JF", "PARAM", "READ", "WRITE",
 	"IND", "INDEX", "ATRIBPONT", "CONTAPONT", "RETURN", "CALL",
-	"EXIT"
+	"EXIT", "OPENFUNC", "JT"
 };
 
 /*
@@ -565,7 +567,7 @@ DoStat 		: 	DO {
 						Incompatibilidade("Expressao deve ser logica ou relacional");
 					opndaux.tipo = ROTOPND;
 					opndaux.atr.rotulo = $<quad>2;
-					GeraQuadrupla (OPJF, $7.opnd, opndidle, opndaux);
+					GeraQuadrupla (OPJT, $7.opnd, opndidle, opndaux);
 				}
 			;
 
@@ -760,7 +762,7 @@ FuncCall 	: 	ID OPPAR {
 					opnd1.tipo = FUNCOPND;	opnd1.atr.simb = $$.simb;
 					opnd2.tipo = INTOPND; opnd2.atr.valint = $4;
 
-					if ($$.simb->tvar == NAOVAR)
+					if ($$.simb->tvar == NAOVAR || $$.simb->tvar == VAZIO)
 						result = opndidle;
 					else {
 						result.tipo = VAROPND;
@@ -1064,7 +1066,7 @@ Variable 	: 	ID {
 							$$.opnd.atr.simb = $$.simb;
 						else {
 							$$.opnd.tipo = VAROPND;
-							$$.opnd.atr.simb = NovaTemp ($$.opnd.tipo, escopocorrente);
+							$$.opnd.atr.simb = NovaTemp ($$.simb->tvar, escopocorrente);
 
 							opndaux.tipo = INTOPND;
 							opndaux.atr.valint = $3;
@@ -1078,7 +1080,7 @@ Variable 	: 	ID {
 
 							if(ehatrib == FALSO){
 								operando opnd = $$.opnd;
-								$$.opnd.atr.simb = NovaTemp($$.opnd.tipo, escopocorrente);
+								$$.opnd.atr.simb = NovaTemp($$.simb->tvar, escopocorrente);
 								GeraQuadrupla(OPCONTAPONT, opnd, opndidle, $$.opnd);
 								$$.simb = $$.opnd.atr.simb;
 							}
